@@ -152,27 +152,6 @@ class SkillManager:
         except Exception as e:
             raise HTTPException(status_code=HTTPStatus.BAD_REQUEST, detail=str(e)) from e
 
-    def _initialize_skill(self, config: SkillConfig) -> tuple[str, str]:
-        """Initialize a skill by saving it to file and validating its registration."""
-        # Validate the code and get class/module names
-        class_name, module_name = self._validate_skill_code(config.content)
-
-        try:
-            # Save the file
-            self._save_skill_to_file(config)
-
-            # Validate the skill
-            self._reload_and_validate_skill(class_name, module_name)
-
-            return class_name, module_name
-        except Exception as e:
-            # Clean up the file if anything fails
-            filename = f"{class_name.lower()}.py"
-            file_path = self.skills_dir / filename
-            if self.fs.file_exists(file_path):
-                self.fs.remove_file(file_path)
-            raise e
-
     def _delete_skill_file(self, config: SkillConfig) -> None:
         """Delete the skill's Python file from the custom_skills directory."""
         try:
@@ -283,9 +262,6 @@ Code:
                     status_code=HTTPStatus.BAD_REQUEST,
                     detail=f"Skill not safe: {reason}",
                 )
-
-        # Initialize the skill
-        # self._initialize_skill(config)
 
         # Save the approved skill to storage
         skill_id = self.storage.save(config)

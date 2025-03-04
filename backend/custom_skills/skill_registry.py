@@ -1,4 +1,5 @@
 import importlib.util
+import types
 from pathlib import Path
 
 from agency_swarm import BaseTool
@@ -69,15 +70,26 @@ class SkillRegistry:
         return self._skills.get(name)
 
     def _get_skill_from_database(self, name: str) -> type[BaseTool] | None:
-        """Retrieve a skill from the database and register it locally if found."""
+        """Retrieve a skill from the database and dynamically create a class."""
         self.storage = SkillConfigStorage()
         self.skill_manager = SkillManager(self.storage)
         skill_configs = self.storage.load_by_titles([name])
         skill_config = skill_configs[0] if skill_configs else None
+
         if skill_config:
-            self.skill_manager._save_skill_to_file(skill_config)
-            self.reload()
-            return self._get_skill_from_registry(name)
+            skill_code = skill_config.content  # The actual Python code for the skill
+            skill_module = types.ModuleType(name)  # Create a new module dynamically
+
+            try:
+                exec(skill_code, skill_module.__dict__)  # Execute the skill code in the module
+                for attr_name in dir(skill_module):
+                    attr = getattr(skill_module, attr_name)
+                    if isinstance(attr, type) and issubclass(attr, BaseTool) and attr != BaseTool:
+                        return attr  # Return the dynamically created class
+
+            except Exception as e:
+                print(f"Error loading skill {name}: {e}")
+
         return None
 
     def register_skill(self, name: str, skill: type[BaseTool]) -> None:
